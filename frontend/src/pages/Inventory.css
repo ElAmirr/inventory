@@ -1,0 +1,8 @@
+/* Inventory page — inherits shared styles from index.css */
+
+/* Actions cell flex layout */
+.actions-cell {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
