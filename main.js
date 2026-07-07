@@ -76,8 +76,8 @@ function createWindow() {
 ipcMain.on('print-current', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-        win.webContents.print({ silent: false, printBackground: true }).catch(err => {
-            console.log('Print failed', err);
+        win.webContents.print({ silent: false, printBackground: true }, (success, errorType) => {
+            if (!success) console.log('Print failed', errorType);
         });
     }
 });
@@ -86,10 +86,8 @@ ipcMain.on('print-html', (event, htmlContent) => {
     let workerWin = new BrowserWindow({ show: false });
     workerWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     workerWin.webContents.on('did-finish-load', () => {
-        workerWin.webContents.print({ silent: false, printBackground: true }).then(() => {
-            workerWin.close();
-        }).catch(err => {
-            console.log('Popup print failed', err);
+        workerWin.webContents.print({ silent: false, printBackground: true }, (success, errorType) => {
+            if (!success) console.log('Popup print failed', errorType);
             workerWin.close();
         });
     });
