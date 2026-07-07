@@ -307,11 +307,11 @@
 }
 
 @media print {
-    body * {
-        visibility: hidden;
+    /* Hide everything EXCEPT the print container */
+    body > :not(#root) {
+        display: none !important;
     }
-
-    /* Hide UI elements from layout calculation so they don't break page flow */
+    
     .sidebar,
     .pos-main,
     .pos-sidebar,
@@ -322,17 +322,11 @@
         display: none !important;
     }
 
-    .print-only,
-    .print-only * {
-        visibility: visible;
-    }
-
     .print-only {
         display: block !important;
-        position: absolute;
-        left: 0;
-        top: 0;
         width: 100%;
+        margin: 0;
+        padding: 0;
         color: black;
         background: white;
     }

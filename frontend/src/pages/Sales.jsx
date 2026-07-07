@@ -314,7 +314,7 @@ export default function Sales() {
                         <CheckCircle2 size={48} color="#22c55e" style={{ margin: '0 auto 20px' }} />
                         <h2>Transaction terminée !</h2>
                         <p>Étape suivante : <strong>{printingStatus}</strong></p>
-                        <button className="primary-btn" onClick={() => window.electronAPI ? window.electronAPI.printCurrent() : window.print()} style={{ margin: '20px auto 0' }}>
+                        <button className="primary-btn" onClick={() => window.print()} style={{ margin: '20px auto 0' }}>
                             <Printer size={18} /> Imprimer maintenant
                         </button>
                         <button className="ghost-btn" style={{ marginTop: '10px' }} onClick={() => { setPrintingStatus(null); barcodeInputRef.current?.focus(); }}>
