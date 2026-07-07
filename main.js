@@ -77,17 +77,24 @@ ipcMain.on('print-current', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
         win.webContents.print({ silent: false, printBackground: true }, (success, errorType) => {
-            if (!success) console.log('Print failed', errorType);
+            if (!success) dialog.showErrorBox('Print Error', `Erreur d'impression : ${errorType}`);
         });
     }
 });
 
 ipcMain.on('print-html', (event, htmlContent) => {
-    let workerWin = new BrowserWindow({ show: false });
+    // Windows requires the window to be somewhat visible/active to spawn a system print dialog
+    let workerWin = new BrowserWindow({
+        show: true,
+        width: 800,
+        height: 600,
+        title: 'Impression en cours...',
+        autoHideMenuBar: true
+    });
     workerWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     workerWin.webContents.on('did-finish-load', () => {
         workerWin.webContents.print({ silent: false, printBackground: true }, (success, errorType) => {
-            if (!success) console.log('Popup print failed', errorType);
+            if (!success) dialog.showErrorBox('Print Error', `Erreur d'impression (popup) : ${errorType}`);
             workerWin.close();
         });
     });
