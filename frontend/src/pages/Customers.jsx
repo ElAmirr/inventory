@@ -185,11 +185,15 @@ export default function Customers() {
             </table>
         </body></html>`;
 
-        const w = window.open('', '_blank', 'width=750,height=960');
-        w.document.write(html);
-        w.document.close();
-        w.focus();
-        setTimeout(() => w.print(), 400);
+        if (window.electronAPI) {
+            window.electronAPI.printHtml(html);
+        } else {
+            const w = window.open('', '_blank', 'width=750,height=960');
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            setTimeout(() => w.print(), 400);
+        }
     };
 
 

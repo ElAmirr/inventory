@@ -235,7 +235,7 @@ export default function Reports() {
 
             {/* Floating Print Button */}
             <button
-                onClick={() => window.print()}
+                onClick={() => window.electronAPI ? window.electronAPI.printCurrent() : window.print()}
                 title="Imprimer le rapport"
                 style={{
                     position: 'fixed',
