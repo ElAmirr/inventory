@@ -72,39 +72,42 @@ function createWindow() {
     win.once('ready-to-show', () => win.show());
 }
 
-// ─── Helper: print content directly to default printer ────────────────────────
-function printDirect(webContents) {
-    webContents.print(
-        { silent: true, printBackground: true },
-        (success, errorType) => {
-            if (!success) {
-                dialog.showErrorBox(
-                    'Erreur d\'impression',
-                    `Impossible d'imprimer. Vérifiez qu'une imprimante par défaut est configurée.\n\nDétail : ${errorType}`
-                );
-            }
-        }
-    );
+// ─── Helper: save PDF and open with system viewer ────────────────────────────
+async function printToPdfAndOpen(webContents) {
+    try {
+        const { fs } = require('fs'); // fallback if not global
+        const fileSys = fs || require('fs');
+        const pdfBuffer = await webContents.printToPDF({
+            printBackground: true,
+            pageSize: 'A4',
+            marginsType: 1 // minimal margins
+        });
+        const tmpPath = path.join(app.getPath('temp'), `impression-${Date.now()}.pdf`);
+        fileSys.writeFileSync(tmpPath, pdfBuffer);
+        const { shell } = require('electron');
+        shell.openPath(tmpPath);
+    } catch (err) {
+        dialog.showErrorBox('Erreur PDF', `Impossible de générer le PDF :\n${err.message}`);
+    }
 }
 
-// ─── Print IPC: print current page directly ───────────────────────────────────
+// ─── Print IPC: print current window as PDF ───────────────────────────────────
 ipcMain.on('print-current', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-        printDirect(win.webContents);
+        printToPdfAndOpen(win.webContents);
     }
 });
 
-// ─── Print IPC: render arbitrary HTML then print directly ─────────────────────
+// ─── Print IPC: render arbitrary HTML then print as PDF ──────────────────────
 ipcMain.on('print-html', (event, htmlContent) => {
     const workerWin = new BrowserWindow({ show: false });
     workerWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     workerWin.webContents.once('did-finish-load', () => {
-        // Wait for fonts/layout to settle before printing
-        setTimeout(() => {
-            printDirect(workerWin.webContents);
-            // Close the window after a reasonable time to allow the print job to spool
-            setTimeout(() => workerWin.destroy(), 3000);
+        // Wait for fonts/layout to settle before generating PDF
+        setTimeout(async () => {
+            await printToPdfAndOpen(workerWin.webContents);
+            workerWin.close();
         }, 600);
     });
 });
