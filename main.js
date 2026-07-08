@@ -1,6 +1,7 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
 
 const PORT = 3001;
 let server = null;
@@ -50,7 +51,7 @@ function createWindow() {
     const win = new BrowserWindow({
         width: 1280,
         height: 820,
-        show: false,                        // hidden until ready-to-show
+        show: false,
         backgroundColor: '#f8f9fb',
         webPreferences: {
             nodeIntegration: false,
@@ -68,16 +69,51 @@ function createWindow() {
         win.loadFile(path.join(__dirname, 'frontend/dist/index.html'));
     }
 
-    // Only reveal the window once it has fully rendered — prevents white flash
     win.once('ready-to-show', () => win.show());
 }
+
+// ─── Helper: save PDF and open with system viewer ────────────────────────────
+async function printToPdfAndOpen(webContents) {
+    try {
+        const pdfBuffer = await webContents.printToPDF({
+            printBackground: true,
+            pageSize: 'A4',
+            marginsType: 1 // minimal margins
+        });
+        const tmpPath = path.join(app.getPath('temp'), `facture-${Date.now()}.pdf`);
+        fs.writeFileSync(tmpPath, pdfBuffer);
+        shell.openPath(tmpPath);
+    } catch (err) {
+        dialog.showErrorBox('Erreur PDF', `Impossible de générer le PDF :\n${err.message}`);
+    }
+}
+
+// ─── Print IPC: print current window as PDF ───────────────────────────────────
+ipcMain.on('print-current', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+        printToPdfAndOpen(win.webContents);
+    }
+});
+
+// ─── Print IPC: render arbitrary HTML then print as PDF ──────────────────────
+ipcMain.on('print-html', (event, htmlContent) => {
+    const workerWin = new BrowserWindow({ show: false });
+    workerWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+    workerWin.webContents.once('did-finish-load', async () => {
+        // Small delay to ensure fonts/layout are fully rendered
+        setTimeout(async () => {
+            await printToPdfAndOpen(workerWin.webContents);
+            workerWin.close();
+        }, 500);
+    });
+});
 
 // ─── App entry point ─────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
     const isDev = !app.isPackaged;
 
     if (!isDev) {
-        // In production, start backend THEN wait for it to be healthy
         try {
             await startBackend();
             await waitForBackend();

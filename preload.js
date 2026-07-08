@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-    // Reserved for future IPC communication if needed
+    printCurrent: () => ipcRenderer.send('print-current'),
+    printHtml: (html) => ipcRenderer.send('print-html', html)
 });
