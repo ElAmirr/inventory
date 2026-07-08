@@ -314,7 +314,85 @@ export default function Sales() {
                         <CheckCircle2 size={48} color="#22c55e" style={{ margin: '0 auto 20px' }} />
                         <h2>Transaction terminée !</h2>
                         <p>Étape suivante : <strong>{printingStatus}</strong></p>
-                        <button className="primary-btn" onClick={() => window.electronAPI ? window.electronAPI.printCurrent() : window.print()} style={{ margin: '20px auto 0' }}>
+                        <button className="primary-btn" onClick={() => {
+                            if (window.electronAPI && printedTotals.type) {
+                                const itemRows = printedCart.map((item, idx) =>
+                                    `<tr style="background:${idx % 2 === 0 ? '#fafafa' : '#fff'};border-bottom:1px solid #ede9fe">
+                                        <td style="padding:8px 12px;font-size:13px">${item.name}</td>
+                                        <td style="padding:8px 12px;text-align:center;font-size:13px">${item.quantity}</td>
+                                        <td style="padding:8px 12px;text-align:right;font-size:13px">${(item.unit_price_cents / 100).toFixed(3)} DT</td>
+                                        <td style="padding:8px 12px;text-align:right;font-size:13px;font-weight:600">${(item.line_total_cents / 100).toFixed(3)} DT</td>
+                                    </tr>`
+                                ).join('');
+                                const isFacture = printedTotals.type === 'facture';
+                                const html = isFacture ? `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Facture</title>
+                                <style>body{font-family:Arial,sans-serif;margin:40px;color:#111;font-size:13px}table{width:100%;border-collapse:collapse}</style></head>
+                                <body>
+                                <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);height:6px;border-radius:3px;margin-bottom:30px"></div>
+                                <div style="display:flex;justify-content:space-between;margin-bottom:30px;padding-bottom:16px;border-bottom:2px solid #ede9fe">
+                                    <div>
+                                        <div style="font-size:20px;font-weight:800;color:#1e1b4b">${settings.store_name || 'Mon Magasin'}</div>
+                                        ${settings.store_mf ? `<div style="font-size:12px;color:#555;margin-top:4px">M.F : ${settings.store_mf}</div>` : ''}
+                                        ${settings.store_phone ? `<div style="font-size:12px;color:#555;margin-top:2px">Tél : ${settings.store_phone}</div>` : ''}
+                                        ${settings.store_address ? `<div style="font-size:12px;color:#555;margin-top:2px">${settings.store_address}</div>` : ''}
+                                    </div>
+                                    <div style="text-align:right">
+                                        <div style="font-size:15px;font-weight:700;color:#1e1b4b">${printedTotals.customer?.name || ''}</div>
+                                        ${printedTotals.customer?.company_name ? `<div style="font-size:12px;color:#555;margin-top:2px">${printedTotals.customer.company_name}</div>` : ''}
+                                        ${printedTotals.customer?.phone ? `<div style="font-size:12px;color:#555;margin-top:2px">Tél : ${printedTotals.customer.phone}</div>` : ''}
+                                    </div>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;margin-bottom:20px">
+                                    <div style="font-size:24px;font-weight:800;color:#4f46e5">FACTURE</div>
+                                    <div style="font-size:12px;color:#666">Date : ${printedTotals.date}</div>
+                                </div>
+                                <table>
+                                    <thead><tr style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white">
+                                        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase">Désignation</th>
+                                        <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase">Qté</th>
+                                        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">P.U</th>
+                                        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">Total</th>
+                                    </tr></thead>
+                                    <tbody>${itemRows}</tbody>
+                                </table>
+                                <div style="display:flex;justify-content:flex-end;margin-top:20px">
+                                    <div style="width:260px;border-top:2px solid #ede9fe;padding-top:12px">
+                                        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#555">
+                                            <span>Sous-total</span><span>${(printedTotals.subtotal / 100).toFixed(3)} DT</span></div>
+                                        ${printedTotals.discount > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#e53e3e"><span>Remise</span><span>-${(printedTotals.discount / 100).toFixed(3)} DT</span></div>` : ''}
+                                        ${printedTotals.tax > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#555"><span>TVA</span><span>+${(printedTotals.tax / 100).toFixed(3)} DT</span></div>` : ''}
+                                        <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:10px 16px;border-radius:8px;display:flex;justify-content:space-between;margin-top:8px;font-weight:700">
+                                            <span>TOTAL À PAYER</span><span>${(printedTotals.total / 100).toFixed(3)} DT</span></div>
+                                    </div>
+                                </div>
+                                </body></html>`
+                                    : `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket</title>
+                                <style>body{font-family:'Courier New',monospace;width:80mm;margin:0 auto;padding:10px;font-size:13px}
+                                .divider{text-align:center;letter-spacing:2px;margin:6px 0}
+                                table{width:100%;border-collapse:collapse}td{padding:2px 0;vertical-align:top}
+                                .right{text-align:right}.total{font-weight:bold;font-size:1.1em}</style></head>
+                                <body>
+                                <div class="divider">--------------------------------</div>
+                                <p style="margin:2px">Date: ${printedTotals.date}</p>
+                                <div class="divider">================================</div>
+                                <table><tbody>
+                                ${printedCart.map(item => `<tr><td>${item.name}<br><small>${item.quantity} x ${(item.unit_price_cents / 100).toFixed(3)}</small></td><td class="right"><strong>${(item.line_total_cents / 100).toFixed(3)} DT</strong></td></tr>`).join('')}
+                                </tbody></table>
+                                <div class="divider">--------------------------------</div>
+                                <div style="display:flex;justify-content:space-between"><span>Sous-total</span><span>${(printedTotals.subtotal / 100).toFixed(3)} DT</span></div>
+                                ${printedTotals.discount > 0 ? `<div style="display:flex;justify-content:space-between"><span>Remise</span><span>-${(printedTotals.discount / 100).toFixed(3)} DT</span></div>` : ''}
+                                ${printedTotals.tax > 0 ? `<div style="display:flex;justify-content:space-between"><span>TVA</span><span>+${(printedTotals.tax / 100).toFixed(3)} DT</span></div>` : ''}
+                                <div class="divider">================================</div>
+                                <div class="total" style="display:flex;justify-content:space-between"><span>TOTAL</span><span>${(printedTotals.total / 100).toFixed(3)} DT</span></div>
+                                <div class="divider">--------------------------------</div>
+                                <p style="text-align:center;margin:6px 0">Merci de votre visite !</p>
+                                <p style="text-align:center;margin:2px">À très bientôt</p>
+                                </body></html>`;
+                                window.electronAPI.printHtml(html);
+                            } else {
+                                window.print();
+                            }
+                        }} style={{ margin: '20px auto 0' }}>
                             <Printer size={18} /> Imprimer maintenant
                         </button>
                         <button className="ghost-btn" style={{ marginTop: '10px' }} onClick={() => { setPrintingStatus(null); barcodeInputRef.current?.focus(); }}>
