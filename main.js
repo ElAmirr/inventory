@@ -72,42 +72,43 @@ function createWindow() {
     win.once('ready-to-show', () => win.show());
 }
 
-// ─── Helper: save PDF and open with system viewer ────────────────────────────
-async function printToPdfAndOpen(webContents) {
-    try {
-        const pdfBuffer = await webContents.printToPDF({
-            printBackground: true,
-            pageSize: 'A4',
-            marginsType: 1 // minimal margins
-        });
-        const tmpPath = path.join(app.getPath('temp'), `facture-${Date.now()}.pdf`);
-        fs.writeFileSync(tmpPath, pdfBuffer);
-        shell.openPath(tmpPath);
-    } catch (err) {
-        dialog.showErrorBox('Erreur PDF', `Impossible de générer le PDF :\n${err.message}`);
-    }
+// ─── Helper: print content directly to default printer ────────────────────────
+function printDirect(webContents) {
+    webContents.print(
+        { silent: true, printBackground: true },
+        (success, errorType) => {
+            if (!success) {
+                dialog.showErrorBox(
+                    'Erreur d\'impression',
+                    `Impossible d'imprimer. Vérifiez qu'une imprimante par défaut est configurée.\n\nDétail : ${errorType}`
+                );
+            }
+        }
+    );
 }
 
-// ─── Print IPC: print current window as PDF ───────────────────────────────────
+// ─── Print IPC: print current page directly ───────────────────────────────────
 ipcMain.on('print-current', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-        printToPdfAndOpen(win.webContents);
+        printDirect(win.webContents);
     }
 });
 
-// ─── Print IPC: render arbitrary HTML then print as PDF ──────────────────────
+// ─── Print IPC: render arbitrary HTML then print directly ─────────────────────
 ipcMain.on('print-html', (event, htmlContent) => {
     const workerWin = new BrowserWindow({ show: false });
     workerWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
-    workerWin.webContents.once('did-finish-load', async () => {
-        // Small delay to ensure fonts/layout are fully rendered
-        setTimeout(async () => {
-            await printToPdfAndOpen(workerWin.webContents);
-            workerWin.close();
-        }, 500);
+    workerWin.webContents.once('did-finish-load', () => {
+        // Wait for fonts/layout to settle before printing
+        setTimeout(() => {
+            printDirect(workerWin.webContents);
+            // Close the window after a reasonable time to allow the print job to spool
+            setTimeout(() => workerWin.destroy(), 3000);
+        }, 600);
     });
 });
+
 
 // ─── App entry point ─────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
