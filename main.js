@@ -72,7 +72,7 @@ function createWindow() {
     win.once('ready-to-show', () => win.show());
 }
 
-// ─── Helper: save PDF and open with system viewer ────────────────────────────
+// ─── Helper: save PDF and open with system viewer (Fallback) ──────────────────
 async function printToPdfAndOpen(webContents) {
     try {
         const { fs } = require('fs'); // fallback if not global
@@ -91,26 +91,42 @@ async function printToPdfAndOpen(webContents) {
     }
 }
 
-// ─── Print IPC: print current window as PDF ───────────────────────────────────
+// ─── Helper: Smart Print (Try Silent, Fallback to PDF) ────────────────────────
+function printSmart(webContents, parentWindowToClose = null) {
+    webContents.print(
+        { silent: true, printBackground: true },
+        async (success, errorType) => {
+            if (!success) {
+                console.log(`Silent print failed (${errorType}). Falling back to PDF...`);
+                await printToPdfAndOpen(webContents);
+            }
+            if (parentWindowToClose) {
+                setTimeout(() => parentWindowToClose.destroy(), 1500);
+            }
+        }
+    );
+}
+
+// ─── Print IPC: print current window ──────────────────────────────────────────
 ipcMain.on('print-current', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-        printToPdfAndOpen(win.webContents);
+        printSmart(win.webContents);
     }
 });
 
-// ─── Print IPC: render arbitrary HTML then print as PDF ──────────────────────
+// ─── Print IPC: render arbitrary HTML then print ─────────────────────────────
 ipcMain.on('print-html', (event, htmlContent) => {
     const workerWin = new BrowserWindow({ show: false });
     workerWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
     workerWin.webContents.once('did-finish-load', () => {
-        // Wait for fonts/layout to settle before generating PDF
-        setTimeout(async () => {
-            await printToPdfAndOpen(workerWin.webContents);
-            workerWin.close();
+        // Wait for fonts/layout to settle before generating PDF or printing
+        setTimeout(() => {
+            printSmart(workerWin.webContents, workerWin);
         }, 600);
     });
 });
+
 
 
 // ─── App entry point ─────────────────────────────────────────────────────────
